@@ -170,7 +170,7 @@ test('built Shadowrocket adapters execute against shared storage and binary resp
   assert.equal(patterns.length,3);
   for (const match of moduleText.matchAll(/script-path=([^,\n]+)/g)) {
     const filename = match[1].split('/').pop();
-    assert.match(filename, /^(panel|observe|rewrite)-0\.1\.1\.js$/);
+    assert.match(filename, /^(panel|observe|rewrite)-0\.1\.2\.js$/);
     assert.ok(readFileSync(path.join(root,'dist',filename)).length>0);
   }
   for(const host of HOSTS) assert.equal(patterns[2].test('https://'+host+'/clls/wloc'),true);
