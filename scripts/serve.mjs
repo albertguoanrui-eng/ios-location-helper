@@ -2,8 +2,9 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '../dist');
+const { version } = JSON.parse(await readFile(path.resolve(import.meta.dirname,'../package.json'),'utf8'));
 const host = process.env.HOST || '127.0.0.1', port = Number(process.env.PORT || 4187);
-const allowed = new Set(['index.html','panel.js','observe.js','rewrite.js','location-helper.sgmodule','source.zip','SHA256SUMS']);
+const allowed = new Set(['index.html','panel.js','observe.js','rewrite.js','location-helper.sgmodule','source.zip','SHA256SUMS',...['panel','observe','rewrite'].map(name=>`${name}-${version}.js`)]);
 const types = { '.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.sgmodule':'text/plain; charset=utf-8', '.zip':'application/zip' };
 http.createServer(async (req,res) => {
   const p = new URL(req.url,'http://localhost').pathname;

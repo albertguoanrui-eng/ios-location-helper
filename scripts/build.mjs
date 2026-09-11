@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const { HOSTS } = require('../src/core.cjs');
 const root = path.resolve(import.meta.dirname, '..');
 const out = path.join(root, 'dist');
+const { version } = JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
+if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Invalid package version');
 let base = process.env.PUBLIC_BASE_URL || 'http://127.0.0.1:4187';
 const url = new URL(base);
 const privateHost = /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(url.hostname);
@@ -19,15 +21,16 @@ for (const [file, expected] of Object.entries(metadata.files)) {
   if (createHash('sha256').update(await readFile(path.join(root, file))).digest('hex') !== expected) throw new Error('上游完整性校验失败: ' + file);
 }
 const wrap = text => `(function(){var module={exports:{}};\n${text}\nreturn module.exports;})()`;
-const intro = '// Shadowrocket Location Helper 0.1.0 — AGPL-3.0\n// Source: ' + base + '/source.zip\n';
+const intro = '// Shadowrocket Location Helper ' + version + ' — AGPL-3.0\n// Source: ' + base + '/source.zip\n';
 const start = intro + '(function(){\nconst lib=' + wrap(source) + ';\nconst helper=lib.createHelper($persistentStore);\n';
 const end = '\n})();\n';
 let html = (await readFile(path.join(root, 'web/panel.html'), 'utf8')).replaceAll('__MODULE_URL__', base + '/location-helper.sgmodule').replaceAll('__SOURCE_URL__', base + '/source.zip');
 await mkdir(out, { recursive:true });
 await writeFile(path.join(out, 'index.html'), html);
-await writeFile(path.join(out, 'panel.js'), start + `try{$done(helper.handle($request,${JSON.stringify(html)}) || {});}catch(e){$done({response:{status:'HTTP/1.1 500 Internal Server Error',headers:{'Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify({error:'模块存储或控制接口错误'})}});}` + end);
+await writeFile(path.join(out, 'panel.js'), start + `try{$done(helper.handle($request,${JSON.stringify(html)}) || {});}catch(e){$done({response:{status:500,headers:{'X-Location-Helper':'1','Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify({error:'模块存储或控制接口错误'})}});}` + end);
 await writeFile(path.join(out, 'observe.js'), start + 'try{$done(helper.observe($request));}catch(e){$done({});}' + end);
 await writeFile(path.join(out, 'rewrite.js'), start + 'const engine=' + wrap(vendor) + ';\ntry{$done(helper.rewrite($request,$response,engine));}catch(e){$done({});}' + end);
+for (const name of ['panel','observe','rewrite']) await writeFile(path.join(out,`${name}-${version}.js`),await readFile(path.join(out,name+'.js')));
 const wloc = '^https?:\\/\\/(?:gs-loc(?:-cn)?\\.apple\\.com|gsp-ssl\\.ls\\.apple\\.com|bluedot\\.is\\.autonavi\\.com(?:\\.gds\\.alibabadns\\.com)?)\\/clls\\/wloc(?:\\?.*)?$';
 const panel = '^https:\\/\\/gs-loc\\.apple\\.com\\/wloc-helper\\/';
 const moduleText = `#!name=定位助手 · 本地控制与诊断
@@ -35,9 +38,9 @@ const moduleText = `#!name=定位助手 · 本地控制与诊断
 #!category=Tools
 
 [Script]
-Location Helper Panel = type=http-request,pattern=${panel},requires-body=1,max-size=16384,timeout=10,script-path=${base}/panel.js?v=0.1.0
-Location Helper Observe = type=http-request,pattern=${wloc},requires-body=0,timeout=10,script-path=${base}/observe.js?v=0.1.0
-Location Helper Rewrite = type=http-response,pattern=${wloc},requires-body=1,binary-body-mode=1,max-size=1048576,timeout=30,script-path=${base}/rewrite.js?v=0.1.0
+Location Helper Panel = type=http-request,pattern=${panel},requires-body=1,max-size=16384,timeout=10,script-path=${base}/panel-${version}.js
+Location Helper Observe = type=http-request,pattern=${wloc},requires-body=0,timeout=10,script-path=${base}/observe-${version}.js
+Location Helper Rewrite = type=http-response,pattern=${wloc},requires-body=1,binary-body-mode=1,max-size=1048576,timeout=30,script-path=${base}/rewrite-${version}.js
 
 [MITM]
 hostname = %APPEND% ${HOSTS.join(', ')}
