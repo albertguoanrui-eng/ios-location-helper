@@ -36,6 +36,20 @@ gs-loc.apple.com,gs-loc-cn.apple.com,gsp-ssl.ls.apple.com,bluedot.is.autonavi.co
 
 模块导入、脚本首次下载和更新要求手机能访问 `raw.githubusercontent.com`；小火箭的离线缓存行为尚未真机验证。若下载失败，先检查该域名的网络连通性和小火箭下载日志。
 
+### 点击下载后没有出现模块
+
+请从当前配置的「模块」入口添加 URL，而不是把模块当作机场订阅或整份代理配置。不同小火箭版本的入口可能不同；下载后回到模块列表查看是否出现「定位助手」。
+
+如果 GitHub Raw 下载没有反应，可在同一入口使用备用地址：
+
+```text
+https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/location-helper-cdn.sgmodule
+```
+
+备用模块的三份脚本也使用 jsDelivr CDN 下载，避免只换模块地址、脚本仍从 GitHub Raw 下载。两种入口功能相同，只启用其中一个。CDN 可达性仍取决于手机网络。
+
+也可以先用手机 Safari 打开模块地址：看到以 `#!name=` 开头的文字表示已取到配置，不一定弹出文件下载；若空白、报错或一直加载，请记录提示和 Shadowrocket 版本继续排查。不要直接用 GitHub 的 `blob` 网页地址导入模块。
+
 ## 怎样读诊断
 
 | 面板结果 | 能确认的事情 | 接下来检查 |
