@@ -12,3 +12,6 @@ dist/
 *.mobiledevicepairing
 *.xcuserstate
 xcuserdata/
+
+# Private local archive: device logs, screenshots, tools, and provenance
+/local-archive/
