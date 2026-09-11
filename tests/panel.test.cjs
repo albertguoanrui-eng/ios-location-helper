@@ -45,7 +45,7 @@ test('save and stop each send once and navigate to read persisted state',async()
   let panel=await mount(fetcher,snapshot(helper));
   panel.node('locationForm').events.submit({preventDefault(){}});await settle();
   assert.equal(calls,1);assert.equal(helper.config().enabled,true);assert.equal(panel.navigations.length,1);
-  assert.match(panel.navigations[0],/^\/wloc-helper\/\?v=0\.1\.2&refresh=\d+$/);
+  assert.match(panel.navigations[0],/^\/wloc-helper\/\?v=0\.1\.3&refresh=\d+$/);
   panel=await mount(fetcher,snapshot(helper));assert.equal(panel.node('enabled').textContent,'已开启');
   await panel.node('stop').onclick();assert.equal(calls,2);assert.equal(helper.config().enabled,false);assert.equal(panel.navigations.length,1);
   panel=await mount(fetcher,snapshot(helper));assert.equal(panel.node('enabled').textContent,'已关闭');

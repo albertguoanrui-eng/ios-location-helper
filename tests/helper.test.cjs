@@ -170,10 +170,67 @@ test('built Shadowrocket adapters execute against shared storage and binary resp
   assert.equal(patterns.length,3);
   for (const match of moduleText.matchAll(/script-path=([^,\n]+)/g)) {
     const filename = match[1].split('/').pop();
-    assert.match(filename, /^(panel|observe|rewrite)-0\.1\.2\.js$/);
+    assert.match(filename, /^(panel|observe|rewrite)-0\.1\.3\.js$/);
     assert.ok(readFileSync(path.join(root,'dist',filename)).length>0);
   }
   for(const host of HOSTS) assert.equal(patterns[2].test('https://'+host+'/clls/wloc'),true);
   assert.equal(patterns[2].test('https://gs-loc.apple.com.evil.example/clls/wloc'),false);
   assert.equal(patterns[0].test(ORIGIN+PANEL_PATH+'api/stop'),true);
+});
+
+test('module patterns and runtime guards agree on default ports and reject other destinations', () => {
+  const patterns = [...readFileSync(path.join(root,'dist/location-helper.sgmodule'),'utf8').matchAll(/pattern=([^,\n]+)/g)].map(x=>new RegExp(x[1]));
+  const {helper} = active();
+  for (const host of HOSTS) for (const [scheme,port] of [['https','443'],['http','80']]) {
+    const url = scheme+'://'+host+':'+port+'/clls/wloc?test=1';
+    assert.ok(patterns[1].test(url)); assert.ok(patterns[2].test(url));
+    assert.equal(helper.observe({...request,url}).headers['Accept-Encoding'],'identity');
+  }
+  for (const url of ['https://gs-loc.apple.com:80/clls/wloc','http://gs-loc.apple.com:443/clls/wloc','https://gs-loc.apple.com:8443/clls/wloc','https://user@gs-loc.apple.com/clls/wloc','https://gs-loc.apple.com.evil/clls/wloc']) {
+    assert.equal(patterns[1].test(url),false); assert.equal(patterns[2].test(url),false);
+    assert.deepEqual(helper.observe({...request,url}),{});
+  }
+  const probe = 'https://gs-loc-cn.apple.com:443/wloc-helper-probe/';
+  assert.ok(patterns[1].test(probe)); assert.equal(patterns[2].test(probe),false);
+});
+
+test('manual CN probe validates binary rewrite without changing saved coordinates or WLOC evidence', () => {
+  const {helper,store,values} = active();
+  helper.save({...DEFAULT,latitude:12,longitude:34,enabled:true});
+  const before = JSON.stringify(helper.state());
+  const url = 'https://gs-loc-cn.apple.com:443/wloc-helper-probe/';
+  const output = helper.probe({url},engine);
+  assert.match(output.response.body,/"storage": true/); assert.match(output.response.body,/"binaryRewrite": true/);
+  const after = helper.state();
+  assert.equal(after.config.latitude,12); assert.equal(after.config.longitude,34);
+  assert.equal(after.stage,'waiting'); assert.equal(after.request,null); assert.equal(after.response,null);
+  assert.equal(after.systemLocationVerified,false);
+  assert.deepEqual(after.config,JSON.parse(before).config);
+  assert.equal(helper.probe({url,method:'POST'},engine).response.status,405);
+  assert.equal(helper.probe({url:'https://evil.example/wloc-helper-probe/'},engine),null);
+  const failing = createHelper({read:store.read,write:()=>false});
+  assert.match(failing.probe({url},engine).response.body,/"storage": false/);
+  assert.match(helper.probe({url},{}).response.body,/"binaryRewrite": false/);
+  values.set('location_helper_v1:runtime:observe:wloc',JSON.stringify({version:'0.1.3',status:'failed',at:1,error:'secret token',body:'secret body'}));
+  assert.equal(JSON.stringify(helper.report()).includes('secret'),false);
+});
+
+test('adapter failures are observable and still complete exactly once with unchanged traffic', () => {
+  const {store,values} = active(); const logs = [];
+  function run(file,customStore=store,source=readFileSync(path.join(root,'dist',file),'utf8')) {
+    const done=[];
+    vm.runInNewContext(source,{$request:request,$response:response(),$persistentStore:customStore,$done:r=>done.push(r),console:{log:line=>logs.push(line)}},{timeout:1000});
+    assert.equal(done.length,1); return done[0];
+  }
+  const badStore = {read:store.read,write:(value,key)=>key.endsWith(':request') ? false : store.write(value,key)};
+  assert.equal(Object.keys(run('observe.js',badStore)).length,0);
+  const failure=JSON.parse(values.get('location_helper_v1:runtime:observe:wloc'));
+  assert.equal(failure.status,'failed'); assert.equal(failure.error,'Error');
+  // Initialization failure is inside the adapter boundary too.
+  const broken=readFileSync(path.join(root,'dist/observe.js'),'utf8').replace('lib.createHelper($persistentStore)','(function(){throw new TypeError("private detail");})()');
+  run('observe.js',store,broken);
+  assert.equal(JSON.parse(values.get('location_helper_v1:runtime:observe:wloc')).error,'TypeError');
+  run('observe.js',{read:()=>null,write:()=>{throw Error('secret');}});
+  assert.ok(logs.some(s=>s.includes('storage-unavailable')));
+  assert.equal(logs.join('\n').includes('private detail'),false); assert.equal(logs.join('\n').includes('secret'),false);
 });
