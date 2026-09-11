@@ -22,25 +22,48 @@ for (const [file, expected] of Object.entries(metadata.files)) {
 }
 const wrap = text => `(function(){var module={exports:{}};\n${text}\nreturn module.exports;})()`;
 const intro = '// Shadowrocket Location Helper ' + version + ' — AGPL-3.0\n// Source: ' + base + '/source.zip\n';
-const start = intro + '(function(){\nconst lib=' + wrap(source) + ';\nconst helper=lib.createHelper($persistentStore);\n';
-const end = '\n})();\n';
+const adapter = (name, expression) => intro + `(function(){
+var source = /\\/wloc-helper-probe\\/(?:\\?|$)/.test($request.url || '') ? 'probe' : /\\/clls\\/wloc(?:\\?|$)/.test($request.url || '') ? 'wloc' : '${name}' === 'panel' ? 'control' : 'other';
+function trace(status, error) {
+  var event = {version:'${version}',at:Date.now(),status:status};
+  if (error) event.error = ['Error','TypeError','ReferenceError','SyntaxError','RangeError'].indexOf(error.name) >= 0 ? error.name : 'Error';
+  try { if ($persistentStore.write(JSON.stringify(event),'location_helper_v1:runtime:${name}:'+source) === false) throw Error(); }
+  catch (_) { try { console.log('[LocationHelper ${version}] ${name} '+source+' storage-unavailable'); } catch (_) {} }
+  if (status === 'failed') { try { console.log('[LocationHelper ${version}] ${name} '+source+' failed '+event.error); } catch (_) {} }
+}
+var result = {};
+trace('entered');
+try {
+  var lib = ${wrap(source)};
+  var helper = lib.createHelper($persistentStore);
+  result = ${expression};
+  trace('completed');
+} catch (e) {
+  trace('failed', e);
+  ${name === 'panel' ? "result = {response:{status:500,headers:{'X-Location-Helper':'1','Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify({error:'模块存储或控制接口错误'})}};" : ''}
+}
+$done(result || {});
+})();\n`;
 let html = (await readFile(path.join(root, 'web/panel.html'), 'utf8')).replaceAll('__MODULE_URL__', base + '/location-helper.sgmodule').replaceAll('__SOURCE_URL__', base + '/source.zip');
 await mkdir(out, { recursive:true });
 await writeFile(path.join(out, 'index.html'), html);
-await writeFile(path.join(out, 'panel.js'), start + `try{$done(helper.handle($request,${JSON.stringify(html)}) || {});}catch(e){$done({response:{status:500,headers:{'X-Location-Helper':'1','Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify({error:'模块存储或控制接口错误'})}});}` + end);
-await writeFile(path.join(out, 'observe.js'), start + 'try{$done(helper.observe($request));}catch(e){$done({});}' + end);
-await writeFile(path.join(out, 'rewrite.js'), start + 'const engine=' + wrap(vendor) + ';\ntry{$done(helper.rewrite($request,$response,engine));}catch(e){$done({});}' + end);
+await writeFile(path.join(out, 'panel.js'), adapter('panel', `helper.handle($request,${JSON.stringify(html)})`));
+await writeFile(path.join(out, 'observe.js'), adapter('observe', `helper.isProbe($request) ? helper.probe($request,${wrap(vendor)}) : helper.observe($request)`));
+await writeFile(path.join(out, 'rewrite.js'), adapter('rewrite', `helper.rewrite($request,$response,${wrap(vendor)})`));
 for (const name of ['panel','observe','rewrite']) await writeFile(path.join(out,`${name}-${version}.js`),await readFile(path.join(out,name+'.js')));
-const wloc = '^https?:\\/\\/(?:gs-loc(?:-cn)?\\.apple\\.com|gsp-ssl\\.ls\\.apple\\.com|bluedot\\.is\\.autonavi\\.com(?:\\.gds\\.alibabadns\\.com)?)\\/clls\\/wloc(?:\\?.*)?$';
-const panel = '^https:\\/\\/gs-loc\\.apple\\.com\\/wloc-helper\\/';
-const moduleText = `#!name=定位助手 · 本地控制与诊断
+const hosts = '(?:gs-loc(?:-cn)?\\.apple\\.com|gsp-ssl\\.ls\\.apple\\.com|bluedot\\.is\\.autonavi\\.com(?:\\.gds\\.alibabadns\\.com)?)';
+const wloc = '^(?:https:\\/\\/' + hosts + '(?::443)?|http:\\/\\/' + hosts + '(?::80)?)\\/clls\\/wloc(?:\\?.*)?$';
+const probe = '^https:\\/\\/gs-loc-cn\\.apple\\.com(?::443)?\\/wloc-helper-probe\\/(?:\\?.*)?$';
+const observe = '(?:' + wloc + '|' + probe + ')';
+const panel = '^https:\\/\\/gs-loc\\.apple\\.com(?::443)?\\/wloc-helper\\/';
+const moduleText = `#!name=定位助手 · 0.1.3 实验版
 #!desc=默认关闭改写。面板 https://gs-loc.apple.com/wloc-helper/ 。iOS 27 RC 未验证，响应已改写不代表系统位置生效。
 #!category=Tools
 
 [Script]
-Location Helper Panel = type=http-request,pattern=${panel},requires-body=1,max-size=16384,timeout=10,script-path=${base}/panel-${version}.js
-Location Helper Observe = type=http-request,pattern=${wloc},requires-body=0,timeout=10,script-path=${base}/observe-${version}.js
-Location Helper Rewrite = type=http-response,pattern=${wloc},requires-body=1,binary-body-mode=1,max-size=1048576,timeout=30,script-path=${base}/rewrite-${version}.js
+Location Helper Panel = type=http-request,engine=jsc,pattern=${panel},requires-body=1,max-size=16384,timeout=10,script-path=${base}/panel-${version}.js
+Location Helper Observe = type=http-request,engine=jsc,pattern=${observe},requires-body=0,timeout=10,script-path=${base}/observe-${version}.js
+Location Helper Rewrite = type=http-response,engine=jsc,pattern=${wloc},requires-body=1,binary-body-mode=1,max-size=1048576,timeout=30,script-path=${base}/rewrite-${version}.js
 
 [MITM]
 hostname = %APPEND% ${HOSTS.join(', ')}
