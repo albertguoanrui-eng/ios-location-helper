@@ -1,0 +1,11 @@
+#!name=定位助手 · 0.1.3 实验版 CDN
+#!desc=默认关闭改写。面板 https://gs-loc.apple.com/wloc-helper/ 。iOS 27 RC 未验证，响应已改写不代表系统位置生效。
+#!category=Tools
+
+[Script]
+Location Helper Panel = type=http-request,engine=jsc,pattern=^https:\/\/gs-loc\.apple\.com(?::443)?\/wloc-helper\/,requires-body=1,max-size=16384,timeout=10,script-path=https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/lab/panel-0.1.3.js
+Location Helper Observe = type=http-request,engine=jsc,pattern=(?:^(?:https:\/\/(?:gs-loc(?:-cn)?\.apple\.com|gsp-ssl\.ls\.apple\.com|bluedot\.is\.autonavi\.com(?:\.gds\.alibabadns\.com)?)(?::443)?|http:\/\/(?:gs-loc(?:-cn)?\.apple\.com|gsp-ssl\.ls\.apple\.com|bluedot\.is\.autonavi\.com(?:\.gds\.alibabadns\.com)?)(?::80)?)\/clls\/wloc(?:\?.*)?$|^https:\/\/gs-loc-cn\.apple\.com(?::443)?\/wloc-helper-probe\/(?:\?.*)?$),requires-body=0,timeout=10,script-path=https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/lab/observe-0.1.3.js
+Location Helper Rewrite = type=http-response,engine=jsc,pattern=^(?:https:\/\/(?:gs-loc(?:-cn)?\.apple\.com|gsp-ssl\.ls\.apple\.com|bluedot\.is\.autonavi\.com(?:\.gds\.alibabadns\.com)?)(?::443)?|http:\/\/(?:gs-loc(?:-cn)?\.apple\.com|gsp-ssl\.ls\.apple\.com|bluedot\.is\.autonavi\.com(?:\.gds\.alibabadns\.com)?)(?::80)?)\/clls\/wloc(?:\?.*)?$,requires-body=1,binary-body-mode=1,max-size=1048576,timeout=30,script-path=https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/lab/rewrite-0.1.3.js
+
+[MITM]
+hostname = %APPEND% gs-loc.apple.com, gs-loc-cn.apple.com, gsp-ssl.ls.apple.com, bluedot.is.autonavi.com, bluedot.is.autonavi.com.gds.alibabadns.com
