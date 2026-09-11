@@ -77,7 +77,7 @@ function createHelper(store, now = () => Date.now()) {
     let stage = selected.enabled ? 'waiting' : 'disabled';
     if (selected.enabled && request) stage = 'request-seen';
     if (selected.enabled && response) stage = response.result;
-    return { protocol: 1, version: '0.1.0', config: selected, request, response, stage,
+    return { protocol: 1, version: '0.1.1', config: selected, request, response, stage,
       systemLocationVerified: false };
   }
   function report() {
@@ -144,21 +144,21 @@ function createHelper(store, now = () => Date.now()) {
     const path = url.path.slice(PANEL_PATH.length);
     const method = (request.method || 'GET').toUpperCase();
     function reply(code, body, type = 'application/json; charset=utf-8') {
-      return { response: { status: 'HTTP/1.1 ' + code, headers: {
-        'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+      return { response: { status: code, headers: {
+        'X-Location-Helper': '1', 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
       }, body: typeof body === 'string' ? body : JSON.stringify(body) } };
     }
-    if (method === 'GET' && path === '') return reply('200 OK', html, 'text/html; charset=utf-8');
-    if (method === 'GET' && path === 'api/state') return reply('200 OK', state());
-    if (method === 'GET' && path === 'api/report') return reply('200 OK', report());
-    if (method !== 'POST') return reply('405 Method Not Allowed', { error: '不支持此操作' });
+    if (method === 'GET' && path === '') return reply(200, html, 'text/html; charset=utf-8');
+    if (method === 'GET' && path === 'api/state') return reply(200, state());
+    if (method === 'GET' && path === 'api/report') return reply(200, report());
+    if (method !== 'POST') return reply(405, { error: '不支持此操作' });
     // Browser cross-origin requests cannot supply this custom header without a preflight;
     // OPTIONS is rejected, and no CORS permissions are issued. Also check Origin when present.
     if (header(request.headers, 'x-location-helper') !== '1' ||
         (header(request.headers, 'origin') && header(request.headers, 'origin') !== ORIGIN) ||
         !/^application\/json(?:;|$)/i.test(header(request.headers, 'content-type'))) {
-      return reply('403 Forbidden', { error: '请从设备本地面板操作' });
+      return reply(403, { error: '请从设备本地面板操作' });
     }
     try {
       if (path === 'api/config') {
@@ -166,9 +166,9 @@ function createHelper(store, now = () => Date.now()) {
         save(JSON.parse(request.body));
       } else if (path === 'api/stop') {
         save({ ...config(), enabled: false });
-      } else return reply('404 Not Found', { error: '操作不存在' });
-      return reply('200 OK', state());
-    } catch (e) { return reply('400 Bad Request', { error: e instanceof SyntaxError ? '配置格式错误' : e.message }); }
+      } else return reply(404, { error: '操作不存在' });
+      return reply(200, state());
+    } catch (e) { return reply(400, { error: e instanceof SyntaxError ? '配置格式错误' : e.message }); }
   }
   return { config, save, state, report, observe, rewrite, handle };
 }
