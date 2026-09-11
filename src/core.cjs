@@ -26,8 +26,9 @@ function validate(input) {
 
 function parseUrl(value) {
   // Shadowrocket does not guarantee the browser URL API in script runtimes.
-  const match = /^https?:\/\/([^/?#:]+)(?::\d+)?([^?#]*)(?:\?[^#]*)?$/.exec(value || '');
-  return match ? { host: match[1].toLowerCase(), path: match[2] || '/' } : null;
+  const match = /^(https?):\/\/([^/?#:@]+)(?::(\d+))?([^?#]*)(?:\?[^#]*)?$/.exec(value || '');
+  if (!match || (match[3] && match[3] !== (match[1] === 'https' ? '443' : '80'))) return null;
+  return { host: match[2].toLowerCase(), path: match[4] || '/' };
 }
 
 function header(headers, name) {
@@ -77,8 +78,8 @@ function createHelper(store, now = () => Date.now()) {
     let stage = selected.enabled ? 'waiting' : 'disabled';
     if (selected.enabled && request) stage = 'request-seen';
     if (selected.enabled && response) stage = response.result;
-    return { protocol: 1, version: '0.1.2', config: selected, request, response, stage,
-      systemLocationVerified: false };
+    return { protocol: 1, version: '0.1.3', config: selected, request, response, stage,
+      systemLocationVerified: false, experiments: experiments() };
   }
   function report() {
     const s = state();
@@ -89,7 +90,55 @@ function createHelper(store, now = () => Date.now()) {
     } : null;
     return { protocol: 1, version: s.version, enabled: s.config.enabled,
       stage: s.stage, request: event(s.request), response: event(s.response),
-      systemLocationVerified: false };
+      systemLocationVerified: false, experiments: experiments() };
+  }
+  function experiments() {
+    const probe = read('probe', null);
+    const runtime = [];
+    for (const adapter of ['panel', 'observe', 'rewrite']) for (const source of ['control', 'probe', 'wloc', 'other']) {
+      const value = read('runtime:' + adapter + ':' + source, null);
+      if (value && value.version === '0.1.3' && ['entered', 'completed', 'failed'].includes(value.status)) {
+        runtime.push({ adapter, source, at: value.at, status: value.status,
+          error: ['Error', 'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError'].includes(value.error) ? value.error : undefined });
+      }
+    }
+    return { probe: probe && probe.version === '0.1.3' ? {
+      version: probe.version, at: probe.at, storage: probe.storage === true,
+      binaryRewrite: probe.binaryRewrite === true, systemLocationVerified: false
+    } : null, runtime };
+  }
+  function isProbe(request) {
+    const url = parseUrl(request.url);
+    return !!url && url.host === 'gs-loc-cn.apple.com' && url.path === '/wloc-helper-probe/';
+  }
+  function probe(request, engine) {
+    if (!isProbe(request)) return null;
+    if ((request.method || 'GET').toUpperCase() !== 'GET') return { response: { status: 405, body: 'GET only' } };
+    const result = { version: '0.1.3', at: now(), storage: false, binaryRewrite: false, systemLocationVerified: false };
+    try {
+      const token = now() + '-' + Math.random();
+      write('probe-roundtrip', token);
+      result.storage = read('probe-roundtrip', null) === token;
+    } catch { /* Return a visible failure even if diagnostic persistence is unavailable. */ }
+    try {
+      // Synthetic fixture and isolated storage: never changes the user's selection or WLOC records.
+      const data = {};
+      const isolated = createHelper({ read: key => data[key], write: (value, key) => { data[key] = value; return true; } }, now);
+      isolated.save({ ...DEFAULT, enabled: true });
+      const v = engine.makeVarintField, m = engine.makeLengthDelimitedField, concat = engine.concatBytes;
+      const location = concat([v(1, 100000000), v(2, 200000000), v(3, 39)]);
+      const fixture = engine.buildAppleWLocResponse(m(2, m(2, location)));
+      const changed = isolated.rewrite({ url: 'https://gs-loc-cn.apple.com:443/clls/wloc' }, { status: 200, body: fixture }, engine);
+      const payload = engine.extractAppleWLocPayload(changed.body).payload;
+      const root = engine.parseFields(payload).find(f => f.fieldNumber === 2);
+      const loc = engine.parseFields(root.valueBytes).find(f => f.fieldNumber === 2);
+      result.binaryRewrite = isolated.state().stage === 'patched' && engine.locationSummary(loc.valueBytes) === '51.50740000,-0.12780000';
+    } catch { /* Keep failure explicit; never echo packet data or exception messages. */ }
+    try { write('probe', result); } catch { result.storage = false; }
+    const json = JSON.stringify(result, null, 2);
+    return { response: { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
+      'X-Location-Helper': '1', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" },
+      body: '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>定位助手自检</title><main style="font:18px system-ui;padding:20px;line-height:1.6"><h1>本机实验自检</h1><p>中国区域名上的请求脚本已执行。下面仅为人工测试，不代表系统定位成功。</p><pre style="white-space:pre-wrap">' + json + '</pre><p>storage：存储读写；binaryRewrite：合成数据改写。true 为通过，false 为未通过。</p><a href="https://gs-loc.apple.com/wloc-helper/?v=0.1.3">返回面板并刷新诊断</a></main>' } };
   }
   function observe(request) {
     const url = parseUrl(request.url);
@@ -176,7 +225,7 @@ function createHelper(store, now = () => Date.now()) {
       return reply(200, state());
     } catch (e) { return reply(400, { error: e instanceof SyntaxError ? '配置格式错误' : e.message }); }
   }
-  return { config, save, state, report, observe, rewrite, handle };
+  return { config, save, state, report, observe, rewrite, handle, isProbe, probe };
 }
 
 module.exports = { createHelper, validate, parseUrl, HOSTS, ORIGIN, PANEL_PATH, DEFAULT };
