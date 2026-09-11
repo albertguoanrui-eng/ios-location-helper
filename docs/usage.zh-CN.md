@@ -1,6 +1,6 @@
 # 定位助手：手机端完整使用教程（一步一步操作）
 
-更新日期：2026-09-11。适用项目：**albertguoanrui-eng/ios-location-helper**，当前面板版本 **0.1.1**。
+更新日期：2026-09-11。适用项目：**albertguoanrui-eng/ios-location-helper**，当前面板版本 **0.1.2**。
 
 本教程从你目前遇到的“在小火箭点击下载后没有出现内容”开始，按顺序完成导入、证书、面板、伦敦坐标、地图验证和停止操作。日常使用只操作 iPhone；GitHub 分发版本不需要连接电脑，也不需要安装另一个签名 App。
 
@@ -44,10 +44,10 @@
 考虑到你已经遇到原地址下载无反应，本教程先使用 CDN 入口。复制下面**完整的一行**，不要带上代码框标记、前后空格或换行：
 
 ```text
-https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/location-helper-cdn-0.1.1.sgmodule
+https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/location-helper-cdn-0.1.2.sgmodule
 ```
 
-**检查结果：** 地址以 `https://` 开头，以 `location-helper-cdn-0.1.1.sgmodule` 结尾。它是模块文件地址，不是 GitHub 的 `blob` 文件预览网页，也不是手机控制面板地址。
+**检查结果：** 地址以 `https://` 开头，以 `location-helper-cdn-0.1.2.sgmodule` 结尾。它是模块文件地址，不是 GitHub 的 `blob` 文件预览网页，也不是手机控制面板地址。
 
 ### 步骤 04：先在 Safari 测试这条地址
 
@@ -68,7 +68,7 @@ https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/l
 若 CDN 地址打不开，再在 Safari 测试 GitHub Raw 原始入口：
 
 ```text
-https://raw.githubusercontent.com/albertguoanrui-eng/ios-location-helper/main/module/location-helper-0.1.1.sgmodule
+https://raw.githubusercontent.com/albertguoanrui-eng/ios-location-helper/main/module/location-helper-0.1.2.sgmodule
 ```
 
 其首行应为：
@@ -159,9 +159,9 @@ https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/
 
 若需要单独判断脚本下载是否可达，可在 Safari 逐个打开以下地址。看到 JavaScript 文字是正常的，不需要把脚本正文手动粘贴到坐标输入框：
 
-- [panel.js：控制面板脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/panel-0.1.1.js)
-- [observe.js：请求观测脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/observe-0.1.1.js)
-- [rewrite.js：响应改写脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/rewrite-0.1.1.js)
+- [panel.js：控制面板脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/panel-0.1.2.js)
+- [observe.js：请求观测脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/observe-0.1.2.js)
+- [rewrite.js：响应改写脚本](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/rewrite-0.1.2.js)
 
 模块存在不等于三份脚本已经下载并执行；后面的面板和诊断会继续验证运行过程。
 
@@ -264,16 +264,17 @@ https://gs-loc.apple.com/wloc-helper/
 如果显示“预览模式 · 尚未连接手机”，你打开的是预览页，回到步骤 24 的精确地址。如果显示“无法连接本机模块”，先排查控制接口，不继续填写坐标来判断定位是否生效。
 
 
-**如果你看到的是 0.1.0 页面，底部提示“本机接口返回错误”：** 先更新到步骤 03 的 0.1.1 版本模块，只启用新版，重新连接小火箭，再打开 `https://gs-loc.apple.com/wloc-helper/?v=0.1.1`。右上角确认版本为 0.1.1。旧版的响应状态格式和笼统提示已修正；这不是已确认的 RC 定位限制证据。
+**如果旧版持续提示“模块接口不兼容”，但直接打开状态接口能看到 JSON：** 更新到步骤 03 的 0.1.2 模块，只启用新版，重新连接小火箭，再打开 `https://gs-loc.apple.com/wloc-helper/?v=0.1.2`。确认右上角为 0.1.2。新版随整页读取状态，不再依赖打开页面后的自动状态查询。此前故障的全部根因尚未确认。
 
-0.1.1 会进一步区分：
+如果新版仍失败，展开“连接诊断（不含坐标）”，点击“复制诊断”。连接失败时也可复制，不要重复导入同一版本。记录具体失败字段、页面版本和小火箭版本。
 
 | 新版错误 | 含义和下一步 |
 | --- | --- |
-| 接口 state 返回 HTTP … | 显示了具体失败状态；记录完整代码与说明，不能按成功处理 |
-| 缺少本项目响应标识 | 可能未命中规则或仍运行旧脚本，重新核对模块及版本 |
+| 状态校验失败：… | 显示具体不符合格式的字段；复制连接诊断，不代表 RC 已封堵定位 |
+| 接口 config / stop 返回 HTTP … | 修改设置的请求失败，记录完整状态码；点击刷新读取实际存储，避免盲目重复提交 |
+| 缺少本项目响应标识 | 可能未命中规则或仍运行旧脚本，核对模块及版本 |
 | 返回非 JSON（HTTP …） | 返回了非预期内容，检查脚本命中及原站响应 |
-| 本机接口超时 / Failed to fetch | 请求未正常完成，检查脚本下载、连接及解密 |
+| 本机接口超时 / Failed to fetch | 修改或导出请求未正常完成，刷新整页确认实际状态 |
 | 请使用 HTTPS 控制面板 | 地址使用了 HTTP，改用步骤 24 的 HTTPS 地址 |
 
 <a id="verify"></a>
@@ -299,9 +300,9 @@ https://gs-loc.apple.com/wloc-helper/
 
 ### 步骤 28：点击“保存并开启改写”
 
-点击保存按钮，等待本机接口返回。
+点击保存按钮，等待本机接口返回。页面将自动重新加载，读取已经保存的设置；加载期间不要重复点击。
 
-**检查结果：** 出现“坐标已保存”提示，诊断中的“坐标改写开关”为“已开启”；没有新请求时，顶部显示“设置已保存，等待定位请求”。如果系统恰好已有请求，状态也可能直接进入后续阶段。
+**检查结果：** 重新加载后，诊断中的“坐标改写开关”为“已开启”；没有新请求时，顶部显示“设置已保存，等待定位请求”。如果系统恰好已有请求，状态也可能直接进入后续阶段。
 
 出现数值错误就返回步骤 27；出现存储或接口错误就先处理错误。**保存成功只证明设置写入了小火箭，不证明地图位置改变。**
 
@@ -325,7 +326,7 @@ https://gs-loc.apple.com/wloc-helper/
 
 ### 步骤 32：回到控制面板刷新诊断
 
-切回 Safari 的控制面板，点击“刷新诊断”。
+切回 Safari 的控制面板，点击“刷新诊断”。0.1.2 会重新加载整页，未保存的输入会被当前持久化设置替换；它不会重新提交坐标。
 
 **检查结果：** 能查看当前设置的最近 WLOC 请求时间、响应时间和改写结果。诊断不是累计次数；每次保存会开始一个新的配置版本，旧版本记录不再算本次结果。
 
@@ -435,8 +436,8 @@ Safari 打开同一模块 URL：配置文字 / 空白 / 一直加载 / 错误提
 | 用途 | 地址 |
 | --- | --- |
 | 仓库和本教程 | [GitHub 仓库](https://github.com/albertguoanrui-eng/ios-location-helper) |
-| CDN 模块 | [location-helper-cdn.sgmodule](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/location-helper-cdn-0.1.1.sgmodule) |
-| GitHub Raw 模块 | [location-helper.sgmodule](https://raw.githubusercontent.com/albertguoanrui-eng/ios-location-helper/main/module/location-helper-0.1.1.sgmodule) |
+| CDN 模块 | [location-helper-cdn.sgmodule](https://cdn.jsdelivr.net/gh/albertguoanrui-eng/ios-location-helper@main/module/location-helper-cdn-0.1.2.sgmodule) |
+| GitHub Raw 模块 | [location-helper.sgmodule](https://raw.githubusercontent.com/albertguoanrui-eng/ios-location-helper/main/module/location-helper-0.1.2.sgmodule) |
 | 手机内控制面板，必须先启用模块 | [https://gs-loc.apple.com/wloc-helper/](https://gs-loc.apple.com/wloc-helper/) |
 | 对应源码压缩包，仅供查看或开发 | [source.zip](https://raw.githubusercontent.com/albertguoanrui-eng/ios-location-helper/main/module/source.zip) |
 
