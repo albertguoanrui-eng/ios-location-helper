@@ -55,16 +55,16 @@ test('control panel returns local HTML and JSON state without CORS', () => {
 
 test('control mutations reject cross-origin, simple requests, invalid bodies and preflights', () => {
   const {helper} = setup();
-  for (const headers of [{Origin:'https://evil.example'},{'X-Location-Helper':''},{'Content-Type':'text/plain'}]) assert.match(helper.handle(post('config',{...DEFAULT,enabled:true},headers),'').response.status,/403/);
-  assert.match(helper.handle({...post('config',{}),method:'OPTIONS'},'').response.status,/405/);
-  assert.match(helper.handle({...post('config',{}),body:'{bad'},'').response.status,/400/);
-  assert.match(helper.handle({...post('config',{}),body:' '.repeat(1025)},'').response.status,/400/);
+  for (const headers of [{Origin:'https://evil.example'},{'X-Location-Helper':''},{'Content-Type':'text/plain'}]) assert.equal(helper.handle(post('config',{...DEFAULT,enabled:true},headers),'').response.status,403);
+  assert.equal(helper.handle({...post('config',{}),method:'OPTIONS'},'').response.status,405);
+  assert.equal(helper.handle({...post('config',{}),body:'{bad'},'').response.status,400);
+  assert.equal(helper.handle({...post('config',{}),body:' '.repeat(1025)},'').response.status,400);
   assert.equal(helper.config().enabled,false);
 });
 
 test('failed storage writes cannot report successful configuration', () => {
   const helper = createHelper({ read:()=>null, write:()=>false });
-  assert.match(helper.handle(post('config',{...DEFAULT,enabled:true}),'').response.status,/400/);
+  assert.equal(helper.handle(post('config',{...DEFAULT,enabled:true}),'').response.status,400);
 });
 
 test('only five exact WLOC hosts and path are observed; disabled requests are unchanged', () => {
@@ -158,6 +158,7 @@ test('built Shadowrocket adapters execute against shared storage and binary resp
     return results[0];
   };
   assert.match(run('panel.js',{url:ORIGIN+PANEL_PATH}).response.body,/定位助手/);
+  assert.equal(run('panel.js',{url:ORIGIN+PANEL_PATH+'api/state'}).response.status,200);
   assert.equal(json(run('panel.js',post('config',{...DEFAULT,enabled:true}))).stage,'waiting');
   assert.equal(run('observe.js',request).headers['Accept-Encoding'],'identity');
   assert.ok(run('rewrite.js',request,response()).body.length>0);
@@ -167,6 +168,11 @@ test('built Shadowrocket adapters execute against shared storage and binary resp
   const moduleText=readFileSync(path.join(root,'dist/location-helper.sgmodule'),'utf8');
   const patterns=[...moduleText.matchAll(/pattern=([^,\n]+)/g)].map(x=>new RegExp(x[1]));
   assert.equal(patterns.length,3);
+  for (const match of moduleText.matchAll(/script-path=([^,\n]+)/g)) {
+    const filename = match[1].split('/').pop();
+    assert.match(filename, /^(panel|observe|rewrite)-0\.1\.1\.js$/);
+    assert.ok(readFileSync(path.join(root,'dist',filename)).length>0);
+  }
   for(const host of HOSTS) assert.equal(patterns[2].test('https://'+host+'/clls/wloc'),true);
   assert.equal(patterns[2].test('https://gs-loc.apple.com.evil.example/clls/wloc'),false);
   assert.equal(patterns[0].test(ORIGIN+PANEL_PATH+'api/stop'),true);
