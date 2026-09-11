@@ -77,7 +77,7 @@ function createHelper(store, now = () => Date.now()) {
     let stage = selected.enabled ? 'waiting' : 'disabled';
     if (selected.enabled && request) stage = 'request-seen';
     if (selected.enabled && response) stage = response.result;
-    return { protocol: 1, version: '0.1.1', config: selected, request, response, stage,
+    return { protocol: 1, version: '0.1.2', config: selected, request, response, stage,
       systemLocationVerified: false };
   }
   function report() {
@@ -149,7 +149,13 @@ function createHelper(store, now = () => Date.now()) {
         'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
       }, body: typeof body === 'string' ? body : JSON.stringify(body) } };
     }
-    if (method === 'GET' && path === '') return reply(200, html, 'text/html; charset=utf-8');
+    if (method === 'GET' && path === '') {
+      // Escape HTML delimiters before embedding stored data in a non-executable JSON block.
+      const snapshot = JSON.stringify(state()).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+      const page = html.replace('<script id="initialState" type="application/json">null</script>',
+        () => '<script id="initialState" type="application/json">' + snapshot + '</script>');
+      return reply(200, page, 'text/html; charset=utf-8');
+    }
     if (method === 'GET' && path === 'api/state') return reply(200, state());
     if (method === 'GET' && path === 'api/report') return reply(200, report());
     if (method !== 'POST') return reply(405, { error: '不支持此操作' });
