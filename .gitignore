@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+DerivedData/
+build/
+dist/
+*.ipa
+*.p12
+*.mobileprovision
+*.mobiledevicepairing
+*.xcuserstate
+xcuserdata/
