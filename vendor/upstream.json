@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/mekos2772/ios-location-spoofer",
+  "commit": "f183fd9bb6455af88373f846da47185d9295cb98",
+  "license": "AGPL-3.0",
+  "files": {
+    "vendor/location-spoofer.cjs": "36e078178ac40ef6dbd952deaaabfe257e0873faf27403c74eab2399258c4d78",
+    "LICENSE": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+  }
+}
